@@ -4,6 +4,13 @@
 
 Designed for media enthusiasts, creators, and privacy advocates, Private Gallery scans your existing local directories on disk, indexes them into SQLite for instant timeline dates, albums, and folder browsing, and streams optimized, disk-cached WebP thumbnails using `sharp`—all without moving or modifying your original media files.
 
+![Private Gallery Explore View](docs/screenshoots/03-explore.png)
+
+<p align="center">
+  <em>Explore View — filter and browse photos by tags, cameras, lenses, and cities.</em><br />
+  <strong><a href="./docs/screenshoots">📸 More Screenshots &rarr;</a></strong>
+</p>
+
 ---
 
 ## ✨ Key Features
@@ -110,6 +117,7 @@ Explore the detailed documentation in the `docs/` directory:
 
 - [System Architecture (`docs/architecture.md`)](./docs/architecture.md)
 - [Running & Environment Variables (`docs/running-and-env.md`)](./docs/running-and-env.md)
+- [Screenshots (`docs/screenshoots/`)](./docs/screenshoots)
 
 ---
 
