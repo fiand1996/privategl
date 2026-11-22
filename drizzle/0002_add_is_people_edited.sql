@@ -1,0 +1,1 @@
+ALTER TABLE `photo_user_metadata` ADD `is_people_edited` integer DEFAULT 0 NOT NULL;

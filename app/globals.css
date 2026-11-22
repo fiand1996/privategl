@@ -1,0 +1,277 @@
+@import "tailwindcss";
+
+:root {
+  /* Default Theme: Sleek Dark */
+  --bg-app: #000000;
+  --bg-surface: #121212;
+  --bg-card: #141414;
+  --bg-card-subtle: #161616;
+  --bg-input: #1c1c1c;
+  --bg-hover: #1a1a1a;
+
+  --border-subtle: #262626;
+  --border-strong: #2e2e2e;
+
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+
+  /* Default Accent: Ice Blue */
+  --accent: #8ab4f8;
+  --accent-hover: #aecbfa;
+  --accent-active-bg: #1f2533;
+  --accent-muted: rgba(138, 180, 248, 0.12);
+  --accent-border: rgba(138, 180, 248, 0.3);
+  --accent-foreground: #09090b;
+
+  /* Legacy aliases for backward compatibility */
+  --background: var(--bg-app);
+  --foreground: #e5e7eb;
+  --surface: var(--bg-card);
+  --surface-card: #1e1e1e;
+  --border: var(--border-subtle);
+  --primary: var(--accent);
+  --primary-hover: var(--accent-hover);
+}
+
+/* ==========================================================================
+   THEME PRESETS (Applied via data-theme attribute on <html>)
+   ========================================================================== */
+
+/* 1. Sleek Dark (Default) */
+[data-theme="sleek-dark"] {
+  --bg-app: #000000;
+  --bg-surface: #121212;
+  --bg-card: #141414;
+  --bg-card-subtle: #161616;
+  --bg-input: #1c1c1c;
+  --bg-hover: #1a1a1a;
+
+  --border-subtle: #262626;
+  --border-strong: #2e2e2e;
+
+  --text-primary: #ffffff;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+}
+
+/* 2. OLED Black (Pure Pitch Black) */
+[data-theme="oled-black"] {
+  --bg-app: #000000;
+  --bg-surface: #080808;
+  --bg-card: #0c0c0c;
+  --bg-card-subtle: #101010;
+  --bg-input: #141414;
+  --bg-hover: #181818;
+
+  --border-subtle: #202020;
+  --border-strong: #282828;
+
+  --text-primary: #ffffff;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+}
+
+/* 3. Slate Dark (Deep Midnight Slate) */
+[data-theme="slate-dark"] {
+  --bg-app: #090b10;
+  --bg-surface: #0f131a;
+  --bg-card: #131822;
+  --bg-card-subtle: #18202d;
+  --bg-input: #1a2230;
+  --bg-hover: #1f293b;
+
+  --border-subtle: #232d3f;
+  --border-strong: #2f3d54;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+}
+
+/* 4. Clean Light (Crisp Modern Daylight) */
+[data-theme="clean-light"] {
+  --bg-app: #f4f5f8;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-subtle: #f8fafc;
+  --bg-input: #f1f3f7;
+  --bg-hover: #e7ebf2;
+
+  --border-subtle: #e2e6ee;
+  --border-strong: #cbd2e0;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  --foreground: #0f172a;
+  color-scheme: light;
+}
+
+[data-theme="clean-light"] input,
+[data-theme="clean-light"] select,
+[data-theme="clean-light"] textarea {
+  color: var(--text-primary);
+}
+
+[data-theme="clean-light"] input::placeholder,
+[data-theme="clean-light"] textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   ACCENT COLOR PRESETS (Applied via data-accent attribute on <html>)
+   ========================================================================== */
+
+/* 1. Ice Blue (Default) */
+[data-accent="blue"] {
+  --accent: #8ab4f8;
+  --accent-hover: #aecbfa;
+  --accent-active-bg: #1f2533;
+  --accent-muted: rgba(138, 180, 248, 0.12);
+  --accent-border: rgba(138, 180, 248, 0.3);
+  --accent-foreground: #09090b;
+}
+
+/* 2. Bubblegum Pink */
+[data-accent="pink"] {
+  --accent: #f472b6;
+  --accent-hover: #f9a8d4;
+  --accent-active-bg: #371828;
+  --accent-muted: rgba(244, 114, 182, 0.12);
+  --accent-border: rgba(244, 114, 182, 0.3);
+  --accent-foreground: #ffffff;
+}
+
+/* 3. Emerald Green */
+[data-accent="emerald"] {
+  --accent: #34d399;
+  --accent-hover: #6ee7b7;
+  --accent-active-bg: #132e24;
+  --accent-muted: rgba(52, 211, 153, 0.12);
+  --accent-border: rgba(52, 211, 153, 0.3);
+  --accent-foreground: #ffffff;
+}
+
+/* 4. Sunset Amber */
+[data-accent="amber"] {
+  --accent: #fbbf24;
+  --accent-hover: #fcd34d;
+  --accent-active-bg: #332714;
+  --accent-muted: rgba(251, 191, 36, 0.12);
+  --accent-border: rgba(251, 191, 36, 0.3);
+  --accent-foreground: #09090b;
+}
+
+/* 5. Vivid Purple */
+[data-accent="purple"] {
+  --accent: #c084fc;
+  --accent-hover: #d8b4fe;
+  --accent-active-bg: #2d1c3a;
+  --accent-muted: rgba(192, 132, 252, 0.12);
+  --accent-border: rgba(192, 132, 252, 0.3);
+  --accent-foreground: #ffffff;
+}
+
+/* 6. Crimson Rose */
+[data-accent="rose"] {
+  --accent: #fb7185;
+  --accent-hover: #fda4af;
+  --accent-active-bg: #3b1822;
+  --accent-muted: rgba(251, 113, 133, 0.12);
+  --accent-border: rgba(251, 113, 133, 0.3);
+  --accent-foreground: #ffffff;
+}
+
+/* Light Theme Overrides for High Contrast Readability */
+[data-theme="clean-light"][data-accent="blue"],
+[data-theme="clean-light"] [data-accent="blue"] {
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-active-bg: #eff6ff;
+  --accent-muted: rgba(37, 99, 235, 0.1);
+  --accent-border: rgba(37, 99, 235, 0.25);
+  --accent-foreground: #ffffff;
+}
+[data-theme="clean-light"][data-accent="pink"],
+[data-theme="clean-light"] [data-accent="pink"] {
+  --accent: #db2777;
+  --accent-hover: #be185d;
+  --accent-active-bg: #fdf2f8;
+  --accent-muted: rgba(219, 39, 119, 0.1);
+  --accent-border: rgba(219, 39, 119, 0.25);
+  --accent-foreground: #ffffff;
+}
+[data-theme="clean-light"][data-accent="emerald"],
+[data-theme="clean-light"] [data-accent="emerald"] {
+  --accent: #059669;
+  --accent-hover: #047857;
+  --accent-active-bg: #ecfdf5;
+  --accent-muted: rgba(5, 150, 105, 0.1);
+  --accent-border: rgba(5, 150, 105, 0.25);
+  --accent-foreground: #ffffff;
+}
+[data-theme="clean-light"][data-accent="amber"],
+[data-theme="clean-light"] [data-accent="amber"] {
+  --accent: #d97706;
+  --accent-hover: #b45309;
+  --accent-active-bg: #fffbeb;
+  --accent-muted: rgba(217, 119, 6, 0.1);
+  --accent-border: rgba(217, 119, 6, 0.25);
+  --accent-foreground: #ffffff;
+}
+[data-theme="clean-light"][data-accent="purple"],
+[data-theme="clean-light"] [data-accent="purple"] {
+  --accent: #9333ea;
+  --accent-hover: #7e22ce;
+  --accent-active-bg: #faf5ff;
+  --accent-muted: rgba(147, 51, 234, 0.1);
+  --accent-border: rgba(147, 51, 234, 0.25);
+  --accent-foreground: #ffffff;
+}
+[data-theme="clean-light"][data-accent="rose"],
+[data-theme="clean-light"] [data-accent="rose"] {
+  --accent: #e11d48;
+  --accent-hover: #be123c;
+  --accent-active-bg: #fff1f2;
+  --accent-muted: rgba(225, 29, 72, 0.1);
+  --accent-border: rgba(225, 29, 72, 0.25);
+  --accent-foreground: #ffffff;
+}
+
+@theme inline {
+  --color-bg-app: var(--bg-app);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-card: var(--bg-card);
+  --color-bg-card-subtle: var(--bg-card-subtle);
+  --color-bg-input: var(--bg-input);
+  --color-bg-hover: var(--bg-hover);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-active-bg: var(--accent-active-bg);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-border: var(--accent-border);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-preview-foreground: #09090b;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-geist-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow-x: hidden;
+}

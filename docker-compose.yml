@@ -1,0 +1,26 @@
+name: privategl
+services:
+  privategl:
+    build: .
+    container_name: privategl
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - AUTH_SECRET="your-secure-random-secret-key"
+      - GALLERY_ROOT_PATH=/media/photos
+      - NODE_OPTIONS=--max-old-space-size=2048
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+        reservations:
+          memory: 512M
+    volumes:
+      - privategl_data:/app/data
+      # Mount your host photo directory into the container (change path to your local folder):
+      - ./data/storage:/media/photos
+
+volumes:
+  privategl_data:

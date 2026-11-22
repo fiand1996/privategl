@@ -1,0 +1,47 @@
+# Version control
+.git
+.github
+.gitignore
+
+# Dependencies (installed fresh inside Docker)
+node_modules
+.pnpm-store
+
+# Local Next.js build artifacts & caches
+.next
+out
+build
+*.tsbuildinfo
+next-env.d.ts
+
+# Persistent data, storage, and database
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Logs & debugging
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Documentation & metadata
+README.md
+LICENSE
+AGENTS.md
+docs/
+
+# System files
+.DS_Store
+Thumbs.db

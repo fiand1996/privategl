@@ -1,0 +1,78 @@
+name: CI
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: ["dev", "main"]
+    paths:
+      - "app/**"
+      - "components/**"
+      - "scripts/**"
+      - "lib/**"
+      - "drizzle/**"
+      - "proxy.ts"
+      - "auth.ts"
+      - "drizzle.config.ts"
+      - "tsconfig.json"
+      - "next.config.ts"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "eslint.config.mjs"
+      - ".github/workflows/ci.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "app/**"
+      - "components/**"
+      - "scripts/**"
+      - "lib/**"
+      - "drizzle/**"
+      - "proxy.ts"
+      - "auth.ts"
+      - "drizzle.config.ts"
+      - "tsconfig.json"
+      - "next.config.ts"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "eslint.config.mjs"
+      - ".github/workflows/ci.yml"
+  workflow_dispatch:
+
+jobs:
+  lint-typecheck-build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Verify toolchain
+        run: |
+          node -v
+          pnpm -v
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run lint
+        run: pnpm lint
+
+      - name: Run typecheck
+        run: pnpm exec tsc --noEmit
+
+      - name: Build Next.js app
+        run: pnpm build
