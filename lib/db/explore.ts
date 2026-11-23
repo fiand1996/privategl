@@ -93,11 +93,7 @@ export function getExploreSummary(libraryId: number): ExploreSummary {
     cover_path: string | null;
   }>(sql`
     SELECT t.id, t.name, COUNT(pt.id) as count,
-           (SELECT pt2.entry_path
-            FROM photo_tags pt2
-            JOIN library_entries le ON le.library_id = pt2.library_id AND le.path = pt2.entry_path
-            WHERE pt2.tag_id = t.id AND pt2.library_id = ${libraryId}
-            ORDER BY pt2.id DESC LIMIT 1) as cover_path
+           max(pt.entry_path) as cover_path
     FROM tags t
     JOIN photo_tags pt ON pt.tag_id = t.id
     JOIN library_entries le ON le.library_id = pt.library_id AND le.path = pt.entry_path
@@ -131,13 +127,7 @@ export function getExploreSummary(libraryId: number): ExploreSummary {
     cover_path: string | null;
   }>(sql`
     SELECT pm.camera_make, pm.camera_model, COUNT(pm.id) as count,
-           (SELECT pm2.entry_path
-            FROM photo_metadata pm2
-            JOIN library_entries le ON le.library_id = pm2.library_id AND le.path = pm2.entry_path
-            WHERE pm2.library_id = ${libraryId}
-              AND coalesce(pm2.camera_make, '') = coalesce(pm.camera_make, '')
-              AND coalesce(pm2.camera_model, '') = coalesce(pm.camera_model, '')
-            ORDER BY pm2.id DESC LIMIT 1) as cover_path
+           max(pm.entry_path) as cover_path
     FROM photo_metadata pm
     JOIN library_entries le ON le.library_id = pm.library_id AND le.path = pm.entry_path
     WHERE pm.library_id = ${libraryId}
@@ -335,18 +325,24 @@ export function getExplorePhotos(
       size: schema.libraryEntries.size,
       modifiedAt: schema.libraryEntries.modifiedAt,
       scanId: schema.libraryEntries.scanId,
-      width: sql<number | null>`(SELECT pm.width FROM photo_metadata pm WHERE pm.library_id = ${libraryId} AND pm.entry_path = ${schema.libraryEntries.path})`,
-      height: sql<number | null>`(SELECT pm.height FROM photo_metadata pm WHERE pm.library_id = ${libraryId} AND pm.entry_path = ${schema.libraryEntries.path})`,
-      isFavorite: sql<boolean>`coalesce((SELECT pum.is_favorite FROM photo_user_metadata pum WHERE pum.library_id = ${libraryId} AND pum.entry_path = ${schema.libraryEntries.path}), 0) = 1`,
-      capturedAt: sql<
-        string | null
-      >`(SELECT pm.captured_at FROM photo_metadata pm WHERE pm.library_id = ${libraryId} AND pm.entry_path = ${schema.libraryEntries.path})`,
+      width: schema.photoMetadata.width,
+      height: schema.photoMetadata.height,
+      isFavorite: sql<boolean>`coalesce(${schema.photoUserMetadata.isFavorite}, 0) = 1`,
+      capturedAt: schema.photoMetadata.capturedAt,
     })
     .from(schema.libraryEntries)
+    .leftJoin(
+      schema.photoMetadata,
+      sql`${schema.photoMetadata.libraryId} = ${libraryId} AND ${schema.photoMetadata.entryPath} = ${schema.libraryEntries.path}`,
+    )
+    .leftJoin(
+      schema.photoUserMetadata,
+      sql`${schema.photoUserMetadata.libraryId} = ${libraryId} AND ${schema.photoUserMetadata.entryPath} = ${schema.libraryEntries.path}`,
+    )
     .where(whereClause)
     .orderBy(
       desc(
-        sql`coalesce((SELECT pm.captured_at FROM photo_metadata pm WHERE pm.library_id = ${libraryId} AND pm.entry_path = ${schema.libraryEntries.path}), ${schema.libraryEntries.modifiedAt})`,
+        sql`coalesce(${schema.photoMetadata.capturedAt}, ${schema.libraryEntries.modifiedAt})`,
       ),
     )
     .limit(pageSize)
