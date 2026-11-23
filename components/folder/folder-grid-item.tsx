@@ -58,6 +58,7 @@ export function FolderGridItem({
 
       <Link
         href={`/folder?path=${encodeURIComponent(folder.path)}`}
+        scroll={false}
         onClick={(e) => {
           if (hasSelection) {
             e.preventDefault();

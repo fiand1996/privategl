@@ -60,6 +60,7 @@ export function ExploreHubView({
           {/* Favorites Card */}
           <Link
             href="/explore?collection=favorites"
+            scroll={false}
             className="group relative flex h-36 flex-col justify-between overflow-hidden rounded-2xl border border-border-subtle bg-bg-card p-4 transition duration-300 hover:border-rose-500/40 hover:shadow-lg hover:shadow-rose-500/10"
           >
             {summary.smartCollections.favorites.coverPath ? (
@@ -98,6 +99,7 @@ export function ExploreHubView({
           {/* Top Rated Card */}
           <Link
             href="/explore?collection=top-rated"
+            scroll={false}
             className="group relative flex h-36 flex-col justify-between overflow-hidden rounded-2xl border border-border-subtle bg-bg-card p-4 transition duration-300 hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/10"
           >
             {summary.smartCollections.topRated.coverPath ? (
@@ -136,6 +138,7 @@ export function ExploreHubView({
           {/* Places / Geotagged Card */}
           <Link
             href="/explore?collection=places"
+            scroll={false}
             className="group relative flex h-36 flex-col justify-between overflow-hidden rounded-2xl border border-border-subtle bg-bg-card p-4 transition duration-300 hover:border-emerald-500/40 hover:shadow-lg hover:shadow-emerald-500/10"
           >
             {summary.smartCollections.places.coverPath ? (
@@ -188,6 +191,7 @@ export function ExploreHubView({
               <Link
                 key={person.id}
                 href={`/explore?person=${encodeURIComponent(person.name)}`}
+                scroll={false}
                 className="group flex flex-col items-center gap-2.5 text-center"
               >
                 <div className="relative size-20 sm:size-24 overflow-hidden rounded-full border-2 border-border-subtle bg-bg-card transition duration-300 group-hover:scale-105 group-hover:border-accent group-hover:shadow-lg group-hover:shadow-accent/20">
@@ -241,6 +245,7 @@ export function ExploreHubView({
               <Link
                 key={tag.id}
                 href={`/explore?tag=${encodeURIComponent(tag.name)}`}
+                scroll={false}
                 className="group relative flex h-28 flex-col justify-end overflow-hidden rounded-2xl border border-border-subtle bg-bg-card p-3 transition duration-300 hover:border-accent/50 hover:shadow-lg"
               >
                 {tag.coverPath ? (
@@ -296,6 +301,7 @@ export function ExploreHubView({
               <Link
                 key={idx}
                 href={`/explore?camera=${encodeURIComponent(cam.displayName)}`}
+                scroll={false}
                 className="group relative flex h-24 items-center gap-3.5 overflow-hidden rounded-2xl border border-border-subtle bg-bg-card p-3 transition duration-300 hover:border-accent/50"
               >
                 {cam.coverPath ? (
@@ -349,6 +355,7 @@ export function ExploreHubView({
               <Link
                 key={y.year}
                 href={`/explore?year=${encodeURIComponent(y.year)}`}
+                scroll={false}
                 className="group relative flex h-24 flex-col justify-end overflow-hidden rounded-2xl border border-border-subtle bg-bg-card p-3 transition duration-300 hover:border-amber-400/50"
               >
                 {y.coverPath && (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ArrowLeft, Loader2, User } from "lucide-react";
 import { JustifiedPhotoGrid } from "@/components/gallery/justified-photo-grid";
 import {
@@ -56,8 +56,6 @@ export function ExploreFilteredView({
   yearParam,
   onNotice,
 }: ExploreFilteredViewProps) {
-  const router = useRouter();
-
   const [photosData, setPhotosData] = useState<FilteredPhotosResponse>({
     filterLabel: "Explore",
     items: [],
@@ -334,14 +332,14 @@ export function ExploreFilteredView({
       {/* Filter Bar with Back Button */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-subtle bg-bg-card/80 p-3.5 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => router.push("/explore")}
+          <Link
+            href="/explore"
+            scroll={false}
             className="flex items-center gap-1.5 rounded-xl border border-border-strong bg-bg-input px-3 py-1.5 text-xs font-semibold text-foreground transition hover:bg-bg-hover hover:text-text-primary cursor-pointer"
           >
             <ArrowLeft size={14} />
             <span>All Explore</span>
-          </button>
+          </Link>
 
           <div className="h-4 w-px bg-border-strong" />
 

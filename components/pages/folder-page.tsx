@@ -63,6 +63,13 @@ interface GalleryResponse {
   pageSize: number;
 }
 
+interface FolderCacheEntry {
+  data: GalleryResponse;
+  page: number;
+  scrollY: number;
+}
+
+const folderStateCache = new Map<string, FolderCacheEntry>();
 
 function FolderContent({
   libraryId,
@@ -83,25 +90,78 @@ function FolderContent({
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "admin";
 
-  const [data, setData] = useState<GalleryResponse>({
-    currentPath: "",
-    items: [],
-    breadcrumbs: [],
-    totalCount: 0,
-    folderCount: 0,
-    imageCount: 0,
-    page: 1,
-    pageSize: 48,
+  const cacheKey = `${libraryId}:${folderPath}:${sort}`;
+  const initialCache = folderStateCache.get(cacheKey);
+
+  const [data, setData] = useState<GalleryResponse>(() => {
+    return (
+      initialCache?.data ?? {
+        currentPath: "",
+        items: [],
+        breadcrumbs: [],
+        totalCount: 0,
+        folderCount: 0,
+        imageCount: 0,
+        page: 1,
+        pageSize: 48,
+      }
+    );
   });
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !initialCache);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => initialCache?.page ?? 1);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const isFetchingRef = useRef(false);
+  const isInitialMountRef = useRef(true);
+
+  // Sync state into module cache
+  useEffect(() => {
+    if (data.items.length > 0) {
+      const existing = folderStateCache.get(cacheKey);
+      folderStateCache.set(cacheKey, {
+        data,
+        page,
+        scrollY: existing?.scrollY ?? window.scrollY,
+      });
+    }
+  }, [cacheKey, data, page]);
+
+  // Track window scroll in cache while browsing this folder
+  useEffect(() => {
+    const handleScroll = () => {
+      const existing = folderStateCache.get(cacheKey);
+      if (existing) {
+        existing.scrollY = window.scrollY;
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      const existing = folderStateCache.get(cacheKey);
+      if (existing) {
+        existing.scrollY = window.scrollY;
+      }
+    };
+  }, [cacheKey]);
+
+  // Restore scroll position on mount
+  useEffect(() => {
+    const cached = folderStateCache.get(cacheKey);
+    if (cached && cached.scrollY > 0) {
+      const y = cached.scrollY;
+      const restore = () => window.scrollTo({ top: y, behavior: "instant" });
+      restore();
+      requestAnimationFrame(restore);
+      const timer = setTimeout(restore, 50);
+      return () => clearTimeout(timer);
+    } else {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [cacheKey]);
 
   useEffect(() => {
     isFetchingRef.current = loading || loadingMore;
@@ -153,6 +213,7 @@ function FolderContent({
     libraryId,
     folderPath,
     onSuccess: (msg) => {
+      folderStateCache.clear();
       setNotice(msg);
       setRefreshKey((k) => k + 1);
     },
@@ -161,6 +222,14 @@ function FolderContent({
 
   // Fetch directory contents
   useEffect(() => {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      const cached = folderStateCache.get(cacheKey);
+      if (cached && refreshKey === 0 && folderUploadTimestamp === 0) {
+        return;
+      }
+    }
+
     const controller = new AbortController();
 
     fetch(
@@ -209,7 +278,7 @@ function FolderContent({
       });
 
     return () => controller.abort();
-  }, [folderPath, libraryId, page, refreshKey, sort, folderUploadTimestamp]);
+  }, [cacheKey, folderPath, libraryId, page, refreshKey, sort, folderUploadTimestamp]);
 
   const hasMore = data.totalCount > 0 && data.items.length < data.totalCount;
 
@@ -388,6 +457,7 @@ function FolderContent({
             ? "moved"
             : "copied";
 
+      folderStateCache.clear();
       setNotice(`Successfully ${actionPast} ${count} item(s).`);
       setSelectedPaths(new Set());
       setConfirmDeleteOpen(false);
@@ -436,6 +506,7 @@ function FolderContent({
       }
       return prev;
     });
+    folderStateCache.clear();
     setNotice(`Renamed to "${newName}" successfully.`);
   };
 
@@ -667,6 +738,7 @@ function FolderContent({
             if (singleSelectedItem.isDirectory) {
               router.push(
                 `/folder?path=${encodeURIComponent(singleSelectedItem.path)}`,
+                { scroll: false },
               );
             } else {
               setLocalSelectedPhoto({
@@ -795,6 +867,7 @@ function FolderContent({
         parentFolder={folderPath}
         onClose={() => setCreateFolderOpen(false)}
         onSuccess={(folderName) => {
+          folderStateCache.clear();
           setNotice(`Successfully created folder "${folderName}".`);
           setRefreshKey((k) => k + 1);
         }}
