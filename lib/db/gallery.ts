@@ -186,9 +186,17 @@ export function getIndexedTimelinePage(
   }
 
   const query = search.trim();
-  const conditions = sql`${schema.libraryEntries.libraryId} = ${libraryId}
-    AND ${schema.libraryEntries.kind} = 'image'
-    AND instr(lower(${schema.libraryEntries.name}), lower(${query})) > 0`;
+  const baseConditions = [
+    sql`${schema.libraryEntries.libraryId} = ${libraryId}`,
+    sql`${schema.libraryEntries.kind} = 'image'`,
+  ];
+  if (query) {
+    baseConditions.push(
+      sql`instr(lower(${schema.libraryEntries.name}), lower(${query})) > 0`,
+    );
+  }
+  const conditions = sql.join(baseConditions, sql` AND `);
+
   const totalCount =
     db
       .select({ count: count() })
@@ -212,18 +220,26 @@ export function getIndexedTimelinePage(
       modifiedAt: schema.libraryEntries.modifiedAt,
       width: schema.photoMetadata.width,
       height: schema.photoMetadata.height,
-      isFavorite: sql<boolean>`coalesce((SELECT pum.is_favorite FROM photo_user_metadata pum WHERE pum.library_id = ${libraryId} AND pum.entry_path = ${schema.libraryEntries.path}), 0) = 1`,
+      isFavorite: sql<boolean>`coalesce(${schema.photoUserMetadata.isFavorite}, 0) = 1`,
     })
     .from(schema.libraryEntries)
     .leftJoin(
       schema.photoMetadata,
       sql`${schema.photoMetadata.libraryId} = ${libraryId} AND ${schema.photoMetadata.entryPath} = ${schema.libraryEntries.path}`,
     )
+    .leftJoin(
+      schema.photoUserMetadata,
+      sql`${schema.photoUserMetadata.libraryId} = ${libraryId} AND ${schema.photoUserMetadata.entryPath} = ${schema.libraryEntries.path}`,
+    )
     .where(conditions)
     .orderBy(
-      sql`${schema.libraryEntries.modifiedAt} IS NULL`,
-      desc(schema.libraryEntries.modifiedAt),
-      sql`lower(${schema.libraryEntries.path})`,
+      ...(query
+        ? [
+            sql`${schema.libraryEntries.modifiedAt} IS NULL`,
+            desc(schema.libraryEntries.modifiedAt),
+            sql`lower(${schema.libraryEntries.path})`,
+          ]
+        : [desc(schema.libraryEntries.modifiedAt)]),
     )
     .limit(pageSize)
     .offset((page - 1) * pageSize)
@@ -368,16 +384,25 @@ export function getIndexedGalleryContents(
     breadcrumbs.push({ name: segment, path: accumulatedPath });
   }
 
-  const favoriteEntries = new Set(
-    db
-      .select({ entryPath: schema.photoUserMetadata.entryPath })
-      .from(schema.photoUserMetadata)
-      .where(
-        sql`${schema.photoUserMetadata.libraryId} = ${libraryId} AND ${schema.photoUserMetadata.isFavorite} = 1`,
-      )
-      .all()
-      .map((r) => r.entryPath),
-  );
+  const imagePaths = rows
+    .filter((row) => row.kind === "image")
+    .map((row) => row.path);
+
+  const favoriteEntries =
+    imagePaths.length > 0
+      ? new Set(
+          db
+            .select({ entryPath: schema.photoUserMetadata.entryPath })
+            .from(schema.photoUserMetadata)
+            .where(
+              sql`${schema.photoUserMetadata.libraryId} = ${libraryId}
+                AND ${schema.photoUserMetadata.isFavorite} = 1
+                AND ${inArray(schema.photoUserMetadata.entryPath, imagePaths)}`,
+            )
+            .all()
+            .map((r) => r.entryPath),
+        )
+      : new Set<string>();
 
   return {
     currentPath: normalizedPath,

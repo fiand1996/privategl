@@ -48,6 +48,7 @@ export function FolderBreadcrumbs({
         >
           <Link
             href="/folder"
+            scroll={false}
             className="flex items-center gap-1 rounded-lg px-2 py-1 text-text-secondary transition hover:bg-bg-hover hover:text-text-primary"
           >
             <Home size={14} />
@@ -66,6 +67,7 @@ export function FolderBreadcrumbs({
                 ) : (
                   <Link
                     href={`/folder?path=${encodeURIComponent(crumb.path)}`}
+                    scroll={false}
                     className="rounded-lg px-2 py-1 text-text-secondary hover:bg-bg-hover hover:text-text-primary transition"
                   >
                     {crumb.name}

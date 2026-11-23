@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Compass, X } from "lucide-react";
 import { useLibrary } from "@/components/layout/library-context";
@@ -37,10 +37,42 @@ export function ExplorePage() {
   const [summary, setSummary] = useState<ExploreSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [summaryError, setSummaryError] = useState("");
+  const loadedLibraryIdRef = useRef<number | null>(null);
+
+  // Scroll restoration refs for Explore Hub
+  const hubScrollPosRef = useRef<number>(0);
+  const prevHasFilterRef = useRef<boolean>(hasFilter);
+
+  // Track window scroll when on Hub view
+  useEffect(() => {
+    if (hasFilter) return;
+    const handleScroll = () => {
+      hubScrollPosRef.current = window.scrollY;
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [hasFilter]);
+
+  // Restore scroll position when transitioning back to Hub, or reset to top when entering Filtered view
+  useEffect(() => {
+    const prev = prevHasFilterRef.current;
+    if (hasFilter && !prev) {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    } else if (!hasFilter && prev && hubScrollPosRef.current > 0) {
+      const y = hubScrollPosRef.current;
+      const restore = () => window.scrollTo({ top: y, behavior: "instant" });
+      restore();
+      requestAnimationFrame(restore);
+      const timer = setTimeout(restore, 50);
+      return () => clearTimeout(timer);
+    }
+    prevHasFilterRef.current = hasFilter;
+  }, [hasFilter]);
 
   // Fetch Explore Summary when on Hub view
   useEffect(() => {
     if (!selectedLibraryId || hasFilter) return;
+    if (loadedLibraryIdRef.current === selectedLibraryId && summary !== null) return;
 
     let active = true;
     Promise.resolve().then(() => {
@@ -54,6 +86,7 @@ export function ExplorePage() {
       })
       .then((data: ExploreSummary) => {
         if (active) {
+          loadedLibraryIdRef.current = selectedLibraryId;
           setSummary(data);
           setSummaryError("");
           setSummaryLoading(false);
@@ -69,7 +102,7 @@ export function ExplorePage() {
     return () => {
       active = false;
     };
-  }, [selectedLibraryId, hasFilter]);
+  }, [selectedLibraryId, hasFilter, summary]);
 
   if (!selectedLibraryId) {
     return (
@@ -114,15 +147,18 @@ export function ExplorePage() {
           </div>
         )}
 
-        {!hasFilter ? (
+        <div className={hasFilter ? "hidden" : "block"}>
           <ExploreHubView
             summary={summary}
             loading={summaryLoading}
             error={summaryError}
             libraryId={selectedLibraryId}
           />
-        ) : (
+        </div>
+
+        {hasFilter && (
           <ExploreFilteredView
+            key={`${selectedLibraryId}:${collectionParam}:${tagParam}:${personParam}:${cameraParam}:${yearParam}:${sort}`}
             libraryId={selectedLibraryId}
             gridSize={gridSize}
             onGridSizeChange={setGridSize}

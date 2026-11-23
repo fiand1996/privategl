@@ -22,9 +22,25 @@ export interface IndexedAlbum {
 
 export function syncFolderAlbums(libraryId: number) {
   const db = getDatabase();
+
+  // 1. Get existing folder albums for this library
+  const existingAlbums = db
+    .select({ folderPath: schema.albums.folderPath })
+    .from(schema.albums)
+    .where(
+      sql`${schema.albums.libraryId} = ${libraryId} AND ${schema.albums.kind} = 'folder'`,
+    )
+    .all();
+
+  const existingSet = new Set(
+    existingAlbums.map((a) => a.folderPath).filter(Boolean) as string[],
+  );
+
+  // 2. Get distinct parent paths with max modified date from library_entries
   const folderRows = db
     .select({
       parentPath: schema.libraryEntries.parentPath,
+      maxModified: sql<string | null>`max(${schema.libraryEntries.modifiedAt})`,
     })
     .from(schema.libraryEntries)
     .where(
@@ -35,23 +51,44 @@ export function syncFolderAlbums(libraryId: number) {
     .groupBy(schema.libraryEntries.parentPath)
     .all();
 
-  const now = new Date().toISOString();
-  for (const row of folderRows) {
-    const folderName = path.posix.basename(row.parentPath);
-    db.insert(schema.albums)
-      .values({
-        libraryId,
-        name: folderName,
-        kind: "folder",
-        folderPath: row.parentPath,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .onConflictDoNothing()
-      .run();
+  const missing = folderRows.filter((row) => !existingSet.has(row.parentPath));
+
+  if (missing.length > 0) {
+    const now = new Date().toISOString();
+    const batchSize = 100;
+    for (let i = 0; i < missing.length; i += batchSize) {
+      const slice = missing.slice(i, i + batchSize);
+      db.insert(schema.albums)
+        .values(
+          slice.map((row) => ({
+            libraryId,
+            name: path.posix.basename(row.parentPath),
+            kind: "folder" as const,
+            folderPath: row.parentPath,
+            createdAt: now,
+            updatedAt: row.maxModified || now,
+          })),
+        )
+        .onConflictDoNothing()
+        .run();
+    }
   }
 
-  // Garbage collect deleted files from album entries
+  // 3. Clean up deleted folder albums that no longer contain images
+  db.run(sql`
+    DELETE FROM albums
+    WHERE library_id = ${libraryId}
+      AND kind = 'folder'
+      AND folder_path NOT IN (
+        SELECT DISTINCT parent_path 
+        FROM library_entries 
+        WHERE library_id = ${libraryId} 
+          AND kind = 'image' 
+          AND parent_path != ''
+      )
+  `);
+
+  // 4. Garbage collect deleted files from custom album entries
   db.run(sql`
     DELETE FROM album_entries 
     WHERE library_id = ${libraryId} 
@@ -72,103 +109,157 @@ export function getIndexedAlbums(
     throw new GalleryPathError("Library not found.", 404);
   }
 
-  syncFolderAlbums(libraryId);
-
-  // Fetch albums
   const albumConditions =
     kindFilter && kindFilter !== "all"
       ? sql`${schema.albums.libraryId} = ${libraryId} AND ${schema.albums.kind} = ${kindFilter}`
       : eq(schema.albums.libraryId, libraryId);
 
-  const allAlbums = db
+  // Fast count query directly on albums table
+  let totalCount =
+    db
+      .select({ count: count() })
+      .from(schema.albums)
+      .where(albumConditions)
+      .get()?.count ?? 0;
+
+  // Auto-sync once if library has zero albums indexed yet
+  if (totalCount === 0 && (!kindFilter || kindFilter === "all" || kindFilter === "folder")) {
+    syncFolderAlbums(libraryId);
+    totalCount =
+      db
+        .select({ count: count() })
+        .from(schema.albums)
+        .where(albumConditions)
+        .get()?.count ?? 0;
+  }
+
+  const pageSize = GALLERY_PAGE_SIZE;
+  const page = Math.max(
+    1,
+    Number.isFinite(requestedPage) ? Math.floor(requestedPage) : 1,
+  );
+
+  let orderBy;
+  if (sort === "name-desc") {
+    orderBy = [desc(sql`lower(${schema.albums.name})`)];
+  } else if (sort === "modified-desc") {
+    orderBy = [desc(schema.albums.updatedAt), sql`lower(${schema.albums.name})`];
+  } else {
+    orderBy = [sql`lower(${schema.albums.name})`];
+  }
+
+  // Fetch ONLY the requested page directly from SQLite using limit and offset
+  const pageAlbums = db
     .select()
     .from(schema.albums)
     .where(albumConditions)
-    .all();
-  const albumItems: IndexedAlbum[] = [];
-
-  // Batch aggregate stats for folder albums (eliminates N+1 queries)
-  const folderStatsRows = db
-    .select({
-      parentPath: schema.libraryEntries.parentPath,
-      photoCount: count(),
-      coverName: sql<string>`min(${schema.libraryEntries.name})`,
-      updatedAt: sql<string | null>`max(${schema.libraryEntries.modifiedAt})`,
-    })
-    .from(schema.libraryEntries)
-    .where(
-      sql`${schema.libraryEntries.libraryId} = ${libraryId}
-        AND ${schema.libraryEntries.kind} = 'image'
-        AND ${schema.libraryEntries.parentPath} != ''`,
-    )
-    .groupBy(schema.libraryEntries.parentPath)
+    .orderBy(...orderBy)
+    .limit(pageSize)
+    .offset((page - 1) * pageSize)
     .all();
 
+  if (pageAlbums.length === 0) {
+    return { items: [], totalCount, page, pageSize };
+  }
+
+  // Collect folder paths and custom IDs ONLY for albums on the current page (max 48)
+  const folderPaths = pageAlbums
+    .filter((a) => a.kind === "folder" && a.folderPath)
+    .map((a) => a.folderPath as string);
+
+  const customIds = pageAlbums
+    .filter((a) => a.kind === "custom")
+    .map((a) => a.id);
+
+  // Stats for the folder albums on this page only
   const folderStatsMap = new Map<
     string,
     { photoCount: number; coverName: string; updatedAt: string | null }
   >();
-  for (const row of folderStatsRows) {
-    folderStatsMap.set(row.parentPath, row);
+
+  if (folderPaths.length > 0) {
+    const folderStatsRows = db
+      .select({
+        parentPath: schema.libraryEntries.parentPath,
+        photoCount: count(),
+        coverName: sql<string>`min(${schema.libraryEntries.name})`,
+        updatedAt: sql<string | null>`max(${schema.libraryEntries.modifiedAt})`,
+      })
+      .from(schema.libraryEntries)
+      .where(
+        sql`${schema.libraryEntries.libraryId} = ${libraryId}
+          AND ${schema.libraryEntries.kind} = 'image'
+          AND ${inArray(schema.libraryEntries.parentPath, folderPaths)}`,
+      )
+      .groupBy(schema.libraryEntries.parentPath)
+      .all();
+
+    for (const row of folderStatsRows) {
+      folderStatsMap.set(row.parentPath, row);
+    }
   }
 
-  // Batch aggregate stats for custom albums (eliminates N+1 queries)
-  const customStatsRows = db
-    .select({
-      albumId: schema.albumEntries.albumId,
-      photoCount: count(),
-      firstEntry: sql<string>`min(${schema.albumEntries.entryPath})`,
-      updatedAt: sql<string | null>`max(${schema.libraryEntries.modifiedAt})`,
-    })
-    .from(schema.albumEntries)
-    .innerJoin(
-      schema.libraryEntries,
-      sql`${schema.albumEntries.libraryId} = ${schema.libraryEntries.libraryId} AND ${schema.albumEntries.entryPath} = ${schema.libraryEntries.path}`,
-    )
-    .where(
-      sql`${schema.albumEntries.libraryId} = ${libraryId}
-        AND ${schema.libraryEntries.kind} = 'image'`,
-    )
-    .groupBy(schema.albumEntries.albumId)
-    .all();
-
+  // Stats for the custom albums on this page only
   const customStatsMap = new Map<
     number,
     { photoCount: number; firstEntry: string; updatedAt: string | null }
   >();
-  for (const row of customStatsRows) {
-    customStatsMap.set(row.albumId, row);
+
+  if (customIds.length > 0) {
+    const customStatsRows = db
+      .select({
+        albumId: schema.albumEntries.albumId,
+        photoCount: count(),
+        firstEntry: sql<string>`min(${schema.albumEntries.entryPath})`,
+        updatedAt: sql<string | null>`max(${schema.libraryEntries.modifiedAt})`,
+      })
+      .from(schema.albumEntries)
+      .innerJoin(
+        schema.libraryEntries,
+        sql`${schema.albumEntries.libraryId} = ${schema.libraryEntries.libraryId} AND ${schema.albumEntries.entryPath} = ${schema.libraryEntries.path}`,
+      )
+      .where(
+        sql`${schema.albumEntries.libraryId} = ${libraryId}
+          AND ${schema.libraryEntries.kind} = 'image'
+          AND ${inArray(schema.albumEntries.albumId, customIds)}`,
+      )
+      .groupBy(schema.albumEntries.albumId)
+      .all();
+
+    for (const row of customStatsRows) {
+      customStatsMap.set(row.albumId, row);
+    }
   }
 
-  for (const alb of allAlbums) {
+  const items: IndexedAlbum[] = [];
+  for (const alb of pageAlbums) {
     if (alb.kind === "folder" && alb.folderPath) {
       const stats = folderStatsMap.get(alb.folderPath);
-      if (!stats || stats.photoCount === 0) continue;
-
+      const photoCount = stats?.photoCount ?? 0;
       const coverPath =
         alb.coverEntryPath ||
-        (stats.coverName
+        (stats?.coverName
           ? path.posix.join(alb.folderPath, stats.coverName)
           : "");
 
-      albumItems.push({
+      items.push({
         id: alb.id,
         kind: alb.kind,
         name: alb.name,
         path: alb.folderPath,
         description: alb.description,
-        photoCount: stats.photoCount,
+        photoCount,
         coverPath,
-        coverModifiedAt: stats.updatedAt,
+        coverModifiedAt: stats?.updatedAt ?? alb.updatedAt ?? null,
         coverSize: null,
-        updatedAt: alb.updatedAt || stats.updatedAt,
+        updatedAt: alb.updatedAt || stats?.updatedAt || null,
       });
     } else if (alb.kind === "custom") {
       const stats = customStatsMap.get(alb.id);
       const photoCount = stats?.photoCount ?? 0;
       const coverPath = alb.coverEntryPath || stats?.firstEntry || "";
 
-      albumItems.push({
+      items.push({
         id: alb.id,
         kind: alb.kind,
         name: alb.name,
@@ -178,29 +269,10 @@ export function getIndexedAlbums(
         coverPath,
         coverModifiedAt: stats?.updatedAt ?? null,
         coverSize: null,
-        updatedAt: alb.updatedAt,
+        updatedAt: alb.updatedAt ?? null,
       });
     }
   }
-
-  // Sort albums
-  albumItems.sort((a, b) => {
-    if (sort === "name-desc") return b.name.localeCompare(a.name);
-    if (sort === "modified-desc") {
-      const timeA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-      const timeB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-      return timeB - timeA;
-    }
-    return a.name.localeCompare(b.name);
-  });
-
-  const totalCount = albumItems.length;
-  const pageSize = GALLERY_PAGE_SIZE;
-  const page = Math.max(
-    1,
-    Number.isFinite(requestedPage) ? Math.floor(requestedPage) : 1,
-  );
-  const items = albumItems.slice((page - 1) * pageSize, page * pageSize);
 
   return { items, totalCount, page, pageSize };
 }
@@ -313,7 +385,6 @@ export function getIndexedAlbumPhotos(
   const normalizedPath = albumPathOrId
     .replace(/\\/g, "/")
     .replace(/^\/+|\/+$/g, "");
-  syncFolderAlbums(libraryId);
 
   const alb = db
     .select()

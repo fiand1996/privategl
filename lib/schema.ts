@@ -97,6 +97,8 @@ export const albums = sqliteTable(
   },
   (table) => [
     index("albums_library_kind_idx").on(table.libraryId, table.kind),
+    index("albums_library_name_idx").on(table.libraryId, table.name),
+    index("albums_library_updated_idx").on(table.libraryId, table.updatedAt),
     uniqueIndex("albums_library_folder_idx").on(table.libraryId, table.folderPath),
   ],
 );

@@ -356,6 +356,7 @@ export function AlbumDetailView({
         <div className="flex items-center gap-3">
           <Link
             href="/albums"
+            scroll={false}
             className="rounded-xl p-2 text-text-secondary transition hover:bg-bg-input hover:text-foreground cursor-pointer"
           >
             <ArrowLeft size={20} />

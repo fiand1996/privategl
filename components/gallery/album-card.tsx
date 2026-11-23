@@ -51,6 +51,7 @@ export function AlbumCard({
     <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-border-subtle bg-bg-card transition-all duration-300 hover:-translate-y-1 hover:border-accent/50 hover:shadow-2xl hover:shadow-black/80">
       <Link
         href={`/albums?path=${encodeURIComponent(album.path)}`}
+        scroll={false}
         onClick={() => recordAlbumOpen(libraryId, album.path)}
         className="block relative aspect-square w-full overflow-hidden bg-bg-input"
       >
